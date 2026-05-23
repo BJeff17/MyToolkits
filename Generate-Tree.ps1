@@ -142,11 +142,11 @@ function Get-Tree {
                 $newPrefix = ""
             } else {
                 if ($isLastItem) {
-                    $treeChar = "└─ "
+                    $treeChar = "+- "
                     $newPrefix = $Prefix + "    "
                 } else {
-                    $treeChar = "├─ "
-                    $newPrefix = $Prefix + "│   "
+                    $treeChar = "|- "
+                    $newPrefix = $Prefix + "|   "
                 }
             }
             
