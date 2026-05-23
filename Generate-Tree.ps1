@@ -1,32 +1,32 @@
 <#
 .SYNOPSIS
-    Génère une arborescence du projet au format ASCII avec des informations détaillées
+    Generates a project tree in ASCII format with detailed information
 
 .DESCRIPTION
-    Ce script parcourt récursivement un répertoire et génère une représentation 
-    arborescente au format ASCII similaire à la commande 'tree', avec des options
-    pour afficher la taille des fichiers, le nombre de lignes, et personnaliser les exclusions.
+    This script recursively walks through a directory and generates a tree representation
+    in ASCII format similar to the 'tree' command, with options to display file sizes,
+    line counts, and customize exclusions.
 
 .PARAMETER Path
-    Chemin du répertoire à analyser (par défaut : répertoire courant)
+    Path of the directory to analyze (default: current directory)
 
 .PARAMETER Exclude
-    Tableau de patterns à exclure (supportant les wildcards)
+    Array of patterns to exclude (supporting wildcards)
 
 .PARAMETER IncludeSize
-    Afficher la taille des fichiers
+    Display file sizes
 
 .PARAMETER IncludeLineCount
-    Afficher le nombre de lignes des fichiers texte
+    Display line counts of text files
 
 .PARAMETER Depth
-    Profondeur maximale d'analyse (0 = illimitée)
+    Maximum analysis depth (0 = unlimited)
 
 .EXAMPLE
-    .\Generate-Tree.ps1 -Path .\monprojet -IncludeSize -Exclude @("*.log", "temp*", "node_modules")
+    .\Generate-Tree.ps1 -Path .\myproject -IncludeSize -Exclude @("*.log", "temp*", "node_modules")
 
 .NOTES
-    Auteur: Généré pour l'utilisateur
+    Author: Generated for the user
     Version: 1.0
 #>
 
@@ -48,12 +48,12 @@ param(
     [int]$Depth = 0
 )
 
-# Ajouter les exclusions par défaut si aucune n'est spécifiée
+# Add default exclusions if none specified
 if (-not $Exclude) {
     $Exclude = @(".git", "node_modules", "__pycache__", "*.pyc", "*.pyo", "*.pyd", ".DS_Store", "Thumbs.db")
 }
 
-# Fonction pour vérifier si un fichier/dossier doit être exclu
+# Function to check if a file/folder should be excluded
 function Should-Exclude {
     param([string]$ItemName, [string]$ItemPath)
     
@@ -61,7 +61,7 @@ function Should-Exclude {
         if ($ItemName -like $pattern) {
             return $true
         }
-        # Vérifier aussi le chemin complet pour certains patterns
+        # Also check the full path for some patterns
         if ($ItemPath -like $pattern) {
             return $true
         }
@@ -69,7 +69,7 @@ function Should-Exclude {
     return $false
 }
 
-# Fonction pour formater la taille des fichiers
+# Function to format file size
 function Format-Size {
     param([long]$Bytes)
     
@@ -83,27 +83,27 @@ function Format-Size {
     return "$size $($Sizes[$i])"
 }
 
-# Fonction pour compter les lignes d'un fichier texte
+# Function to count lines in a text file
 function Get-LineCount {
     param([string]$FilePath)
     
     try {
-        # Essayer de lire comme texte UTF-8
+        # Try to read as UTF-8 text
         $content = Get-Content -Path $FilePath -Encoding UTF8 -ErrorAction Stop
         return $content.Length
     } catch {
         try {
-            # Essayer avec l'encodage par défaut
+            # Try with default encoding
             $content = Get-Content -Path $FilePath -ErrorAction Stop
             return $content.Length
         } catch {
-            # Si on ne peut pas lire comme texte, retourner 0
+            # If we can't read as text, return 0
             return 0
         }
     }
 }
 
-# Fonction récursive pour générer l'arborescence
+# Recursive function to generate the tree
 function Get-Tree {
     param(
         [string]$CurrentPath,
@@ -112,31 +112,37 @@ function Get-Tree {
         [int]$CurrentDepth = 0
     )
     
-    # Vérifier la profondeur maximale
+    # Check maximum depth
     if ($Depth -gt 0 -and $CurrentDepth -ge $Depth) {
         return
     }
     
     try {
-        # Obtenir la liste des éléments
+        # Get list of items
         $items = Get-ChildItem -Path $CurrentPath -ErrorAction Stop | 
                  Where-Object { -not (Should-Exclude -ItemName $_.Name -ItemPath $_.FullName) } |
                  Sort-Object {
-                     # Trier les dossiers en premier, puis les fichiers
+                     # Sort directories first, then files
                      if ($_.PSIsContainer) { 0 } else { 1 }
                  } |
                  Sort-Object Name
         
-        # Afficher le chemin racine uniquement au premier niveau
+        # Display root path only at first level
         if ($CurrentDepth -eq 0) {
             Write-Host $CurrentPath
         }
         
         for ($i = 0; $i -lt $items.Length; $i++) {
             $item = $items[$i]
+            
+            # Skip if item is null or invalid
+            if (-not $item) {
+                continue
+            }
+            
             $isLastItem = ($i -eq $items.Length - 1)
             
-            # Déterminer les caractères de l'arbre (version ASCII simple pour éviter les problèmes d'encodage)
+            # Determine tree characters (simple ASCII to avoid encoding issues)
             if ($CurrentDepth -eq 0) {
                 $treeChar = ""
                 $newPrefix = ""
@@ -150,10 +156,10 @@ function Get-Tree {
                 }
             }
             
-            # Construire l'affichage de l'élément
+            # Build display name for the item
             $displayName = $item.Name
             
-            if (-not $item.PSIsContainer) { # C'est un fichier
+            if (-not $item.PSIsContainer) { # It's a file
                 $sizeInfo = ""
                 $lineInfo = ""
                 
@@ -164,33 +170,33 @@ function Get-Tree {
                 
                 if ($IncludeLineCount) {
                     $lineCount = Get-LineCount -FilePath $item.FullName
-                    $lineInfo = " [$lineCount lignes]"
+                    $lineInfo = " [$lineCount lines]"
                 }
                 
                 $displayName += $sizeInfo + $lineInfo
             }
             
-            # Afficher l'élément actuel
+            # Display current item
             Write-Host ("{0}{1}{2}" -f $Prefix, $treeChar, $displayName)
             
-            # Récursivement traiter les sous-dossiers
+            # Recursively process subdirectories
             if ($item.PSIsContainer) {
                 Get-Tree -CurrentPath $item.FullName -Prefix $newPrefix -IsLast $isLastItem -CurrentDepth ($CurrentDepth + 1)
             }
         }
     } catch {
-        Write-Warning "Erreur lors de l'accès à $CurrentPath : $_"
+        Write-Warning "Error accessing $CurrentPath : $_"
     }
 }
 
-# Point d'entrée principal
+# Main entry point
 try {
-    # Résoudre le chemin
+    # Resolve the path
     $resolvedPath = Resolve-Path -Path $Path -ErrorAction Stop
     
-    # Générer l'arborescence
+    # Generate the tree
     Get-Tree -CurrentPath $resolvedPath.ProviderPath
 } catch {
-    Write-Error "Impossible d'accéder au chemin spécifié : $Path"
+    Write-Error "Unable to access specified path: $Path"
     exit 1
 }
